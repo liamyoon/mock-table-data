@@ -3,19 +3,25 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
-  "typesc": "dist/index.d.ts",
+  "types": "dist/index.d.ts",
+  "repository": "https://github.com/liamyoon/mock-table-data.git",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "tslint -p tsconfig.json",
     "prepare": "npm run build",
-    "prepublishOnly": "npm test && npm run lint",
+    "prepublishOnly": "npm run lint",
     "preversion": "npm run lint",
     "version": "npm run format && git add -A src",
     "postversion": "git push && git push --tags"
   },
-  "keywords": [],
+  "keywords": [
+    "ktnexr",
+    "mock-table-data",
+    "table-data",
+    "crud-table-data",
+    "crud-table"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
