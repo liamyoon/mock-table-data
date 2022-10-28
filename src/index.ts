@@ -75,7 +75,7 @@ export default class TableData {
       const value = condition[key];
       if (typeof value === 'string' && value.indexOf(':%like%') > -1) {
         const likeValue = value.replace(':%like%', '');
-        obj[key] = R.pipe(R.toUpper, R.contains(likeValue.toUpperCase()));
+        obj[key] = R.pipe(R.toUpper, R.includes(likeValue.toUpperCase()));
       } else if (typeof value === 'string') {
         obj[key] = R.pipe(R.toUpper, R.equals(value.toUpperCase()));
       } else {
