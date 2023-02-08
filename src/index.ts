@@ -87,10 +87,22 @@ export default class TableData {
   }
 
   getRows(limit, offset, conditions?: Record<string, any>[], sorts?: string[], meta?: boolean) {
-    if (!this._dataSource || !this._dataSource.length) return [];
-
     const nLimit = parseInt(limit, 10);
     const nOffset = offset ? parseInt(offset, 10) : 0;
+
+    if (!this._dataSource || !this._dataSource.length) {
+      if (!meta) return [];
+      return {
+        result: [],
+        meta: {
+          totalCount: 0,
+          currentCount: 0,
+          limit: nLimit,
+          offset: nOffset,
+        },
+      };
+    }
+
     let result = this._dataSource;
 
     // 조건절 filter
