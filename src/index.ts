@@ -40,7 +40,7 @@ export default class TableData {
     for (const item of items) {
       const itemKey = Object.keys(item).find((key) => key !== 'type' && key !== 'required');
       if (!itemKey) throw new Error('invalid item key');
-      const isExist = item[itemKey] && typeof item[itemKey] === 'string';
+      const isExist = item[itemKey] && (typeof item[itemKey] === 'string' || typeof item[itemKey] === 'number');
       if (item.required && !isExist) throw new Error(`${itemKey} is required`);
       if (isExist) conditions.push({ [itemKey]: TableData.convertValue(item[itemKey], item) });
     }
