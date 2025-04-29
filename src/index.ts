@@ -185,26 +185,26 @@ export default class TableData {
   }
 
   selectRows(
-    limit?: string | number,
-    offset?: string | number,
+    limit?: any,
+    offset?: any,
     conditions?: Record<string, any>[],
-    sort?: string | string[],
+    sort?: any,
     meta?: false,
   ): Record<string, any>[];
 
   selectRows(
-    limit?: string | number,
-    offset?: string | number,
+    limit?: any,
+    offset?: any,
     conditions?: Record<string, any>[],
-    sort?: string | string[],
+    sort?: any,
     meta?: true,
   ): TableMetaData;
 
   selectRows(
-    limit?: string | number,
-    offset?: string | number,
+    limit?: any,
+    offset?: any,
     conditions: Record<string, any>[] = [],
-    sort?: string | string[],
+    sort?: any,
     meta?: boolean,
   ) {
     return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
