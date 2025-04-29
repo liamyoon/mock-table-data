@@ -22,7 +22,6 @@ export interface TableMetaData {
   };
 }
 
-
 export default class TableData {
   private readonly _dataSource: Record<string, any>[];
   private readonly _primaryKey?: string;
@@ -186,22 +185,28 @@ export default class TableData {
   }
 
   selectRows(
-    limit?: string|number,
-    offset?: string|number,
+    limit?: string | number,
+    offset?: string | number,
     conditions?: Record<string, any>[],
-    sort?: string|string[],
-    meta?: false
+    sort?: string | string[],
+    meta?: false,
   ): Record<string, any>[];
 
   selectRows(
-    limit?: string|number,
-    offset?: string|number,
+    limit?: string | number,
+    offset?: string | number,
     conditions?: Record<string, any>[],
-    sort?: string|string[],
-    meta?: true
+    sort?: string | string[],
+    meta?: true,
   ): TableMetaData;
 
-  selectRows(limit?: string|number, offset?: string|number, conditions: Record<string, any>[] = [], sort?: string|string[], meta?: boolean) {
+  selectRows(
+    limit?: string | number,
+    offset?: string | number,
+    conditions: Record<string, any>[] = [],
+    sort?: string | string[],
+    meta?: boolean,
+  ) {
     return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
   }
 }
