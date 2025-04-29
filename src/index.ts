@@ -192,21 +192,9 @@ export default class TableData {
     meta?: false,
   ): Record<string, any>[];
 
-  selectRows(
-    limit?: any,
-    offset?: any,
-    conditions?: Record<string, any>[],
-    sort?: any,
-    meta?: true,
-  ): TableMetaData;
+  selectRows(limit?: any, offset?: any, conditions?: Record<string, any>[], sort?: any, meta?: true): TableMetaData;
 
-  selectRows(
-    limit?: any,
-    offset?: any,
-    conditions: Record<string, any>[] = [],
-    sort?: any,
-    meta?: boolean,
-  ) {
+  selectRows(limit?: any, offset?: any, conditions: Record<string, any>[] = [], sort?: any, meta?: boolean) {
     return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
   }
 }
