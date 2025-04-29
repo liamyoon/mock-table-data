@@ -12,6 +12,17 @@ export type TableDataOptions = {
   dataProcessing?: (dataSource: Record<string, any>[]) => Record<string, any>[];
 };
 
+export interface TableMetaData {
+  result: Record<string, any>[];
+  meta: {
+    totalCount: number;
+    currentCount: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+
 export default class TableData {
   private readonly _dataSource: Record<string, any>[];
   private readonly _primaryKey?: string;
@@ -174,7 +185,23 @@ export default class TableData {
     return this.updateRow(conditions);
   }
 
-  selectRows(limit?: any, offset?: any, conditions: Record<string, any>[] = [], sort?: any, meta?: boolean) {
+  selectRows(
+    limit?: string|number,
+    offset?: string|number,
+    conditions?: Record<string, any>[],
+    sort?: string|string[],
+    meta?: false
+  ): Record<string, any>[];
+
+  selectRows(
+    limit?: string|number,
+    offset?: string|number,
+    conditions?: Record<string, any>[],
+    sort?: string|string[],
+    meta?: true
+  ): TableMetaData;
+
+  selectRows(limit?: string|number, offset?: string|number, conditions: Record<string, any>[] = [], sort?: string|string[], meta?: boolean) {
     return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
   }
 }
