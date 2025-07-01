@@ -1,4 +1,10 @@
-import * as R from 'ramda';
+import {
+  filter,
+  get,
+  includes,
+  orderBy,
+  eq,
+} from 'lodash/fp';
 
 export type ConditionItem = {
   [key: string]: any;
@@ -68,32 +74,35 @@ export default class TableData {
   }
 
   sortedList(rows: Record<string, any>[], sorts: string[]): Record<string, any>[] {
-    return R.sortWith(
-      sorts.map((sortItem) => {
-        const [column, order] = sortItem.split(':');
-        const orderFC = order === 'desc' ? R.descend : R.ascend;
-        return orderFC(R.prop(column));
-      }),
-      rows,
-    );
+    const sortKeys: string[] = [];
+    const sortOrders: Array<'asc' | 'desc'> = [];
+
+    for (const s of sorts) {
+      const [key, order] = s.split(':');
+      sortKeys.push(key);
+      sortOrders.push(order === 'desc' ? 'desc' : 'asc');
+    }
+
+    return orderBy(sortKeys, sortOrders, rows);
   }
 
   filteredList(conditions: Record<string, any>[]): Record<string, any>[] {
-    const obj = {};
-    for (const condition of conditions) {
-      const key = Object.keys(condition)[0];
-      const value = condition[key];
-      if (typeof value === 'string' && value.indexOf(':%like%') > -1) {
-        const likeValue = value.replace(':%like%', '');
-        obj[key] = (v) => (v ?? '').toUpperCase().includes(likeValue.toUpperCase());
-      } else if (typeof value === 'string') {
-        obj[key] = (v) => (v ?? '').toUpperCase() === value.toUpperCase();
-      } else {
-        obj[key] = (v) => v === value;
-      }
-    }
+    return filter((row) => {
+      return conditions.every((condition) => {
+        const key = Object.keys(condition)[0];
+        const value = condition[key];
 
-    return R.filter(R.where(obj), this._dataSource);
+        const rowValue = get(key, row);
+        if (typeof value === 'string' && value.includes(':%like%')) {
+          const likeValue = value.replace(':%like%', '').toUpperCase();
+          return includes(likeValue, (rowValue ?? '').toString().toUpperCase());
+        } else if (typeof value === 'string') {
+          return (rowValue ?? '').toString().toUpperCase() === value.toUpperCase();
+        } else {
+          return eq(value, rowValue);
+        }
+      });
+    }, this._dataSource);
   }
 
   getRows(limit, offset, conditions?: Record<string, any>[], sorts?: string[], meta?: boolean) {
@@ -115,23 +124,18 @@ export default class TableData {
 
     let result = this._dataSource;
 
-    // 조건절 filter
     if (conditions) result = this.filteredList(conditions);
     const totalCount = result.length;
 
-    // 정렬
     if (sorts) result = this.sortedList(result, sorts);
-
-    // 페이징 처리
     result = result.slice(nOffset, limit ? nOffset + nLimit : undefined);
 
     if (!meta) return result;
 
     if (this.dataProcessing) result = this.dataProcessing(result);
 
-    // meta값이 on인 경우 meta정보를 추가하여 전체 obj생성
     return {
-      result: R.clone(result),
+      result: [...result],
       meta: {
         totalCount,
         currentCount: result.length,
@@ -142,16 +146,11 @@ export default class TableData {
   }
 
   selectRow(conditions: ConditionItem[]): Record<string, any> | undefined {
-    return R.clone(
-      R.find(
-        R.allPass(
-          conditions.map((condition) => {
-            const key = Object.keys(condition)[0];
-            return R.propEq(key, condition[key]);
-          })
-        )
-      )(this._dataSource)
-    );
+    const conditionObject = TableData.getConditions(conditions)[0];
+    const key = Object.keys(conditionObject)[0];
+    const value = conditionObject[key];
+
+    return this._dataSource.find((row) => get(key, row) === value);
   }
 
   insertRow(item: Record<string, any>): Record<string, any> {
@@ -163,19 +162,17 @@ export default class TableData {
   }
 
   updateRow(conditions: ConditionItem[], item?: Record<string, any>): boolean {
-    const itemIndex = R.findIndex(
-      R.allPass(
-        conditions.map((condition) => {
-          const key = Object.keys(condition)[0];
-          return R.propEq(key, condition[key]);
-        }),
-      ),
-    )(this._dataSource);
+    const foundIndex = this._dataSource.findIndex((row) => {
+      return conditions.every((condition) => {
+        const key = Object.keys(condition)[0];
+        return get(key, row) === condition[key];
+      });
+    });
 
-    if (itemIndex === -1) throw new Error('not found condition');
+    if (foundIndex === -1) throw new Error('not found condition');
 
-    if (item) this._dataSource.splice(itemIndex, 1, item);
-    else this._dataSource.splice(itemIndex, 1);
+    if (item) this._dataSource.splice(foundIndex, 1, item);
+    else this._dataSource.splice(foundIndex, 1);
 
     return true;
   }
