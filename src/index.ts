@@ -85,11 +85,11 @@ export default class TableData {
       const value = condition[key];
       if (typeof value === 'string' && value.indexOf(':%like%') > -1) {
         const likeValue = value.replace(':%like%', '');
-        obj[key] = R.pipe(R.toUpper, R.includes(likeValue.toUpperCase()));
+        obj[key] = (v) => (v ?? '').toUpperCase().includes(likeValue.toUpperCase());
       } else if (typeof value === 'string') {
-        obj[key] = R.pipe(R.toUpper, R.equals(value.toUpperCase()));
+        obj[key] = (v) => (v ?? '').toUpperCase() === value.toUpperCase();
       } else {
-        obj[key] = R.equals(value);
+        obj[key] = (v) => v === value;
       }
     }
 
@@ -141,20 +141,20 @@ export default class TableData {
     };
   }
 
-  selectRow(conditions: Record<string, any>[]): Record<string, any> | undefined {
+  selectRow(conditions: ConditionItem[]): Record<string, any> | undefined {
     return R.clone(
       R.find(
         R.allPass(
           conditions.map((condition) => {
             const key = Object.keys(condition)[0];
             return R.propEq(key, condition[key]);
-          }),
-        ),
-      )(this._dataSource),
+          })
+        )
+      )(this._dataSource)
     );
   }
 
-  insertRow(item): Record<string, any> {
+  insertRow(item: Record<string, any>): Record<string, any> {
     if (this._primaryKey && this._dataSource.find((row) => row[this._primaryKey!] === item[this._primaryKey!])) {
       throw new Error('primary key duplicate error');
     }
@@ -162,7 +162,7 @@ export default class TableData {
     return item;
   }
 
-  updateRow(conditions: Record<string, any>[], item?: Record<string, any>): boolean {
+  updateRow(conditions: ConditionItem[], item?: Record<string, any>): boolean {
     const itemIndex = R.findIndex(
       R.allPass(
         conditions.map((condition) => {
@@ -180,21 +180,21 @@ export default class TableData {
     return true;
   }
 
-  deleteRow(conditions: Record<string, any>[]): boolean {
+  deleteRow(conditions: ConditionItem[]): boolean {
     return this.updateRow(conditions);
   }
 
   selectRows(
     limit?: any,
     offset?: any,
-    conditions?: Record<string, any>[],
+    conditions?: ConditionItem[],
     sort?: any,
     meta?: false,
   ): Record<string, any>[];
 
-  selectRows(limit?: any, offset?: any, conditions?: Record<string, any>[], sort?: any, meta?: true): TableMetaData;
+  selectRows(limit?: any, offset?: any, conditions?: ConditionItem[], sort?: any, meta?: true): TableMetaData;
 
-  selectRows(limit?: any, offset?: any, conditions: Record<string, any>[] = [], sort?: any, meta?: boolean) {
+  selectRows(limit?: any, offset?: any, conditions: ConditionItem[] = [], sort?: any, meta?: boolean) {
     return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
   }
 }
