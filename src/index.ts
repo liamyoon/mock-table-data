@@ -148,9 +148,9 @@ export default class TableData {
           conditions.map((condition) => {
             const key = Object.keys(condition)[0];
             return R.propEq(key, condition[key]);
-          })
-        )
-      )(this._dataSource)
+          }),
+        ),
+      )(this._dataSource),
     );
   }
 
@@ -184,13 +184,7 @@ export default class TableData {
     return this.updateRow(conditions);
   }
 
-  selectRows(
-    limit?: any,
-    offset?: any,
-    conditions?: ConditionItem[],
-    sort?: any,
-    meta?: false,
-  ): Record<string, any>[];
+  selectRows(limit?: any, offset?: any, conditions?: ConditionItem[], sort?: any, meta?: false): Record<string, any>[];
 
   selectRows(limit?: any, offset?: any, conditions?: ConditionItem[], sort?: any, meta?: true): TableMetaData;
 
