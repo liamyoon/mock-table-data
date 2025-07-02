@@ -1,145 +1,146 @@
-# mock-table-data
-mock api 내에서 table row data를 생성 및 관리하기(CRUD) 위한 라이브러리 입니다.
 
-## Installation
-```sh
-$ npm install --save mock-table-data
+# mock-table-data
+
+`mock-table-data`는 JavaScript/TypeScript 환경에서 테이블 형태의 데이터를 조건, 정렬, 페이징 기반으로 필터링하거나 가공할 수 있는 유틸리티 클래스입니다. 테스트용 또는 실제 클라이언트 필터링 용도로 사용할 수 있습니다.
+
+---
+
+## 설치
+
+```bash
+npm install mock-table-data
 ```
 
-## Usage
-mock api 혹은 테스트용 rowdata를 활용할수 있는 모든범위에 사용할 수 있습니다.
-값은 메모리에 저장되기 때문에 코드가 재실행 되는 경우 저장된 값은 자동으로 초기화 됩니다.
+또는
 
-#### Example
+```bash
+yarn add mock-table-data
+```
+
+---
+
+## 사용법
+
 ```ts
 import TableData from 'mock-table-data';
 
-const testData = new TableData(
-  Array.from(Array(10)).map((_, index) => ({
-    id: String(index),
-    title: `2020 카드 사용 패턴 분석 프로젝트_${index}`,
-    lastUsedTime: moment.utc().subtract(index, 'hour').toISOString(),
-    userName: 'nexr',
-    memo: 'Donec facilisis tortor ut augue lacinia, at viverra est semper.',
-  })),
-  { primaryKey: 'id' },
-);
+const table = new TableData(dataSource, {
+  primaryKey: 'id', // 선택사항
+  dataProcessing: (data) => data.map(row => ({ ...row })) // 선택사항
+});
+
+const filtered = table.filteredList([
+  { name: 'John', type: 'string', like: true },
+  { age: 30, type: 'number' }
+]);
+
+const sorted = table.sortedList(filtered, ['name:asc']);
+const paged = table.selectRows(10, 0, filtered, ['age:desc'], true);
 ```
 
-## Methods
-### table.selectRows
-데이터 조회
-```ts
-export default {
-  'GET /api/test-data': (req: Request, res: Response) => {
-    const { title, limit, offset, sort, meta } = req.query;
-    
-    const result = testData.selectRows(
-      limit,
-      offset,
-      [{ title, like: true }],
-      sort,
-      meta === 'on', // meta { totalCount, currentCount, limit, offset } 메타정보 반환
-    );
+---
 
-    return res.status(200).json({
-      ...result,
-    });
-  },
+## API 설명
+
+### `constructor(dataSource, options?)`
+- `dataSource`: 객체 배열 (원본 데이터)
+- `options.primaryKey`: 고유 키로 사용할 컬럼명 (중복 삽입 방지)
+- `options.dataProcessing`: 최종 데이터 처리 콜백
+
+---
+
+### `filteredList(conditions)`
+- 조건에 맞는 row 리스트 반환
+- AND/OR 트리 구조도 지원
+
+### `sortedList(rows, sorts)`
+- `sorts`: `['key:asc', 'key2:desc']` 형식
+
+### `selectRows(limit?, offset?, conditions?, sort?, meta?)`
+- 페이징 + 필터링 + 정렬을 결합한 메서드
+- `meta = true`일 경우 `{ result, meta }` 반환
+
+---
+
+### `insertRow(item)`
+- `primaryKey` 중복 검사 후 삽입
+
+### `updateRow(conditions, newItem?)`
+- 조건을 만족하는 첫 row 수정 (또는 제거)
+
+### `deleteRow(conditions)`
+- 조건을 만족하는 첫 row 제거
+
+### `selectRow(conditions)`
+- 조건을 만족하는 첫 row 반환
+
+---
+
+### ConditionItem 구조
+
+```ts
+type ConditionItem = {
+  [key: string]: any;
+  type?: 'string' | 'number' | 'boolean';
+  required?: boolean;
+  like?: boolean;
 };
 ```
-### table.selectRow, table.insertRow
-단일 데이터 조회, 데이터 추가
+
+- `like`: 부분일치 (`includes`) 검색
+- `required`: 필수값 여부
+- `type`: 타입 검사 수행 여부
+
+---
+
+### ConditionNode 구조
+
 ```ts
-export default {
-  'POST /api/test-data': (req: Request, res: Response) => {
-    const { title, memo } = req.body;
-
-    if (testData.selectRow([{ title }]))
-      return res.status(500).json({ message: '동일한 제목이 있습니다. 다시 입력해 주세요.' });
-
-    const id = String(testData.dataSource.length);
-    const newData = {
-      id,
-      title,
-      lastUsedTime: moment.utc().toISOString(),
-      userName: 'nexr',
-      memo,
-    };
-
-    const result = testData.insertRow(newData);
-
-    return res.status(200).json({
-      result,
-    });
-  },
-};
-```
-### table.updateRow
-데이터 수정
-```ts
-export default {
-  'UPDATE /api/test-data/:id': (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { title, memo } = req.body;
-
-    const data = testData.selectRow([{ id }]);
-    if (!data)
-      return res.status(500).json({ message: '데이터가 존재하지 않습니다.' });
-
-    const newData = {
-      ...data,
-      title,
-      memo,
-    };
-    testData.updateRow([{ id }], newData);
-
-    return res.status(200).json({
-      result: newData,
-    });
-  },
-};
-```
-### table.deleteRow
-데이터 삭제
-```ts
-export default {
-  'DELETE /api/test-data/:id': (req: Request, res: Response) => {
-    const { id } = req.params;
-
-    try {
-      testData.deleteRow([{ id }]);
-    } catch(e) {
-      // 조건에 해당하는 값이 없을 경우 Error 발생
-      return res.status(500).json({ message: e.message });
-    }
-
-    return res.status(200).json({ success: true });
-  },
-};
-```
-### table.dataSource
-현재 저장된 모든 데이터
-```ts
-export default {
-  'GET /api/test-data/all': (req: Request, res: Response) => {
-    return res.status(200).json({ result: testData.dataSource });
-  },
-}
+type ConditionNode =
+  | { logic?: 'AND' | 'OR'; conditions: ConditionNode[] }
+  | ConditionItem;
 ```
 
-## Options
-### TableDataOptions
-| **name**       | **type**                                                     | **required** | **default** | **description**                                                         |
-|----------------|--------------------------------------------------------------|--------------|-------------|-------------------------------------------------------------------------|
-| `primaryKey`     | string                                                       | x            | -           | row insert 시 validation 처리를 위한 primaryKey 를 설정 할 수 있습니다. |
-| `dataProcessing` | (dataSource: Record<string, any>[]) => Record<string, any>[] | x            | -           | row select 시 조회된 데이터 전처리를 위해 사용 할 수 있습니다..         |
+복합 조건을 `AND` 또는 `OR` 로 구성할 수 있습니다.
 
-### ConditionItem
-| **name**      | **type**                          | **required** | **default** | **description**                                                              |
-|---------------|-----------------------------------|--------------|-------------|------------------------------------------------------------------------------|
-| `[key: string]` | any                               | x            | -           | condition key value 값                                                       |
-| `type`          | `'string' \| 'number' \| 'boolean'` | x            | -           | condition value type 불일치 시 throw error                                   |
-| `required`      | boolean                           | x            | false       | condition value 필수 여부  !!required && !conditionValue 의 경우 throw error |
-| `like`          | boolean                           | x            | false       | condition value를 like 이용하여 조회할지 여부                                |
+---
 
+## 예시
+
+```ts
+const table = new TableData([
+  { id: 1, name: 'Alice', age: 25 },
+  { id: 2, name: 'Bob', age: 30 }
+]);
+
+const result = table.selectRows(10, 0, [
+  { name: 'ali', type: 'string', like: true }
+]);
+
+console.log(result);
+```
+
+```ts
+const table = new TableData([
+  { id: 1, name: 'Alice', role: 'admin' },
+  { id: 2, name: 'Bob', role: 'user' },
+  { id: 3, name: 'Charlie', role: 'guest' }
+]);
+
+const result = table.selectRows(10, 0, {
+  logic: 'OR',
+  conditions: [
+    { role: 'admin' },
+    { role: 'guest' }
+  ]
+});
+
+console.log(result);
+// 결과: Alice 와 Charlie의 데이터가 반환됩니다.
+```
+
+---
+
+## License
+
+ISC

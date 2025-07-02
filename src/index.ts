@@ -48,12 +48,38 @@ export default class TableData {
     return undefined;
   }
 
+  private static validateConditionItem(item: ConditionItem): void {
+    const key = Object.keys(item).find((k) => !['type', 'required', 'like'].includes(k));
+    if (!key) throw new Error('Invalid condition item: no key provided');
+
+    const value = item[key];
+    const { required, type } = item;
+
+    if (required && (value === undefined || value === null || value === '')) {
+      throw new Error(`Missing required field: ${key}`);
+    }
+
+    if (value !== undefined && value !== null && type) {
+      const typeCheck = {
+        string: (v: any) => typeof v === 'string',
+        number: (v: any) => typeof v === 'number' || !isNaN(parseFloat(v)),
+        boolean: (v: any) => typeof v === 'boolean' || v === 'true' || v === 'false',
+      }[type];
+
+      if (typeCheck && !typeCheck(value)) {
+        throw new Error(`Type mismatch for key '${key}': expected ${type}, got ${typeof value}`);
+      }
+    }
+  }
+
   private evaluateCondition(row: Record<string, any>, node: ConditionNode): boolean {
     if ('conditions' in node) {
       const logic = node.logic ?? 'AND';
       const results = node.conditions.map((child) => this.evaluateCondition(row, child));
       return logic === 'AND' ? results.every(Boolean) : results.some(Boolean);
     }
+
+    TableData.validateConditionItem(node);
 
     const key = Object.keys(node).find((k) => !['type', 'required', 'like'].includes(k));
     if (!key) return false;

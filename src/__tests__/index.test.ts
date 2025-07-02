@@ -35,6 +35,20 @@ describe('TableData', () => {
     expect(row?.userId).toBe('user5@example.com');
   });
 
+  test('selectRow - required 체크', () => {
+    expect(() => {
+      table.selectRow([{ userId: undefined, required: true }]);
+    }).toThrow('Missing required field: userId');
+  });
+
+  test('selectRow - type 체크', () => {
+    expect(() => {
+      table.selectRow([{ id: 'test', type: 'number' }]);
+    }).toThrow(`Type mismatch for key 'id': expected number, got string`);
+    const row = table.selectRow([{ id: 10, type: 'number' }]);
+    expect(row?.id).toBe(10);
+  });
+
   test('updateRow - 특정 조건으로 수정', () => {
     table.updateRow([{ id: 1 }], {
       ...sampleData[0],
