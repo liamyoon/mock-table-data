@@ -6,12 +6,21 @@ import {
   eq,
 } from 'lodash/fp';
 
+export type LogicOperator = 'AND' | 'OR';
+
 export type ConditionItem = {
   [key: string]: any;
   type?: 'string' | 'number' | 'boolean';
   required?: boolean;
   like?: boolean;
 };
+
+export type ConditionNode =
+  | {
+  logic?: LogicOperator;
+  conditions: ConditionNode[];
+}
+  | ConditionItem;
 
 export type TableDataOptions = {
   primaryKey?: string;
@@ -39,34 +48,33 @@ export default class TableData {
     this.dataProcessing = tableOptions.dataProcessing;
   }
 
-  private static convertValue(value: any, item: ConditionItem): any {
-    switch (item.type) {
-      case 'number':
-        return parseInt(value, 10);
-      case 'boolean':
-        return value === 'true';
-      case 'string':
-      default:
-        return item.like ? `${value}:%like%` : value;
-    }
-  }
-
-  static getConditions(items: ConditionItem[]): Record<string, any>[] {
-    const conditions: Record<string, any>[] = [];
-    for (const item of items) {
-      const itemKey = Object.keys(item).find((key) => key !== 'type' && key !== 'required');
-      if (!itemKey) throw new Error('invalid item key');
-      const isExist = item[itemKey] && (typeof item[itemKey] === 'string' || typeof item[itemKey] === 'number');
-      if (item.required && !isExist) throw new Error(`${itemKey} is required`);
-      if (isExist) conditions.push({ [itemKey]: TableData.convertValue(item[itemKey], item) });
-    }
-    return conditions;
-  }
-
   static getSortOption(sort: any) {
     if (typeof sort === 'string') return [sort];
     if (Array.isArray(sort)) return sort;
     return undefined;
+  }
+
+  private evaluateCondition(row: Record<string, any>, node: ConditionNode): boolean {
+    if ('conditions' in node) {
+      const logic = node.logic ?? 'AND';
+      const results = node.conditions.map((child) => this.evaluateCondition(row, child));
+      return logic === 'AND' ? results.every(Boolean) : results.some(Boolean);
+    }
+
+    const key = Object.keys(node).find((k) => !['type', 'required', 'like'].includes(k));
+    if (!key) return false;
+
+    const value = node[key];
+    const rowValue = get(key, row);
+    const like = node.like === true;
+
+    if (typeof value === 'string') {
+      const cmp = (rowValue ?? '').toString().toUpperCase();
+      const target = value.toUpperCase();
+      return like ? includes(target, cmp) : cmp === target;
+    }
+
+    return eq(value, rowValue);
   }
 
   get dataSource() {
@@ -75,7 +83,7 @@ export default class TableData {
 
   sortedList(rows: Record<string, any>[], sorts: string[]): Record<string, any>[] {
     const sortKeys: string[] = [];
-    const sortOrders: Array<'asc' | 'desc'> = [];
+    const sortOrders: ('asc' | 'desc')[] = [];
 
     for (const s of sorts) {
       const [key, order] = s.split(':');
@@ -86,26 +94,15 @@ export default class TableData {
     return orderBy(sortKeys, sortOrders, rows);
   }
 
-  filteredList(conditions: Record<string, any>[]): Record<string, any>[] {
-    return filter((row) => {
-      return conditions.every((condition) => {
-        const key = Object.keys(condition)[0];
-        const value = condition[key];
+  filteredList(conditions: ConditionNode | ConditionItem[]): Record<string, any>[] {
+    const conditionTree: ConditionNode = Array.isArray(conditions)
+      ? { logic: 'AND', conditions: conditions as ConditionItem[] }
+      : conditions;
 
-        const rowValue = get(key, row);
-        if (typeof value === 'string' && value.includes(':%like%')) {
-          const likeValue = value.replace(':%like%', '').toUpperCase();
-          return includes(likeValue, (rowValue ?? '').toString().toUpperCase());
-        } else if (typeof value === 'string') {
-          return (rowValue ?? '').toString().toUpperCase() === value.toUpperCase();
-        } else {
-          return eq(value, rowValue);
-        }
-      });
-    }, this._dataSource);
+    return filter((row) => this.evaluateCondition(row, conditionTree), this._dataSource);
   }
 
-  getRows(limit, offset, conditions?: Record<string, any>[], sorts?: string[], meta?: boolean) {
+  getRows(limit: any, offset: any, conditions?: ConditionNode | ConditionItem[], sorts?: string[], meta?: boolean): Record<string, any>[] | TableMetaData {
     const nLimit = parseInt(limit, 10);
     const nOffset = offset ? parseInt(offset, 10) : 0;
 
@@ -145,12 +142,12 @@ export default class TableData {
     };
   }
 
-  selectRow(conditions: ConditionItem[]): Record<string, any> | undefined {
-    const conditionObject = TableData.getConditions(conditions)[0];
-    const key = Object.keys(conditionObject)[0];
-    const value = conditionObject[key];
+  selectRow(conditions: ConditionNode | ConditionItem[]): Record<string, any> | undefined {
+    const tree = Array.isArray(conditions)
+      ? { logic: 'AND', conditions: conditions as ConditionItem[] }
+      : conditions;
 
-    return this._dataSource.find((row) => get(key, row) === value);
+    return this._dataSource.find((row) => this.evaluateCondition(row, tree));
   }
 
   insertRow(item: Record<string, any>): Record<string, any> {
@@ -161,37 +158,33 @@ export default class TableData {
     return item;
   }
 
-  updateRow(conditions: ConditionItem[], item?: Record<string, any>): boolean {
-    const foundIndex = this._dataSource.findIndex((row) => {
-      return conditions.every((condition) => {
-        const key = Object.keys(condition)[0];
-        return get(key, row) === condition[key];
-      });
-    });
+  updateRow(conditions: ConditionNode | ConditionItem[], newItem?: Record<string, any>): boolean {
+    const index = this._dataSource.findIndex((row) => this.evaluateCondition(row, Array.isArray(conditions)
+      ? { logic: 'AND', conditions: conditions as ConditionItem[] }
+      : conditions));
 
-    if (foundIndex === -1) throw new Error('not found condition');
+    if (index === -1) throw new Error('not found condition');
 
-    if (item) this._dataSource.splice(foundIndex, 1, item);
-    else this._dataSource.splice(foundIndex, 1);
-
+    if (newItem) this._dataSource.splice(index, 1, newItem);
+    else this._dataSource.splice(index, 1);
     return true;
   }
 
-  deleteRow(conditions: ConditionItem[]): boolean {
+  deleteRow(conditions: ConditionNode | ConditionItem[]): boolean {
     return this.updateRow(conditions);
   }
 
   selectRows(
     limit?: any,
     offset?: any,
-    conditions?: ConditionItem[],
+    conditions?: ConditionNode | ConditionItem[],
     sort?: any,
     meta?: false,
   ): Record<string, any>[];
 
-  selectRows(limit?: any, offset?: any, conditions?: ConditionItem[], sort?: any, meta?: true): TableMetaData;
+  selectRows(limit?: any, offset?: any, conditions?: ConditionNode | ConditionItem[], sort?: any, meta?: true): TableMetaData;
 
-  selectRows(limit?: any, offset?: any, conditions: ConditionItem[] = [], sort?: any, meta?: boolean) {
-    return this.getRows(limit, offset, TableData.getConditions(conditions), TableData.getSortOption(sort), meta);
+  selectRows(limit?: any, offset?: any, conditions: ConditionNode | ConditionItem[] = [], sort?: any, meta?: boolean) {
+    return this.getRows(limit, offset, conditions, TableData.getSortOption(sort), meta);
   }
 }
