@@ -6,7 +6,7 @@ const sampleData = Array.from({ length: 100 }).map((_, i) => ({
   name: `User${i + 1}`,
   status: i % 2 === 0 ? 'active' : 'inactive',
   role: ['admin', 'user', 'guest'][i % 3],
-  createdAt: `2023-01-${(i % 28 + 1).toString().padStart(2, '0')}`,
+  createdAt: `2023-01-${((i % 28) + 1).toString().padStart(2, '0')}`,
   contextId: `ctx-${i + 1}`,
 }));
 
@@ -67,10 +67,7 @@ describe('TableData', () => {
   });
 
   test('selectRow should find one item using AND condition', () => {
-    const row = table.selectRow([
-      { userId: 'user10@example.com' },
-      { status: 'inactive' },
-    ]);
+    const row = table.selectRow([{ userId: 'user10@example.com' }, { status: 'inactive' }]);
     expect(row?.userId).toBe('user10@example.com');
     expect(row?.status).toBe('inactive');
   });
@@ -78,11 +75,7 @@ describe('TableData', () => {
   test('filteredList with OR nested conditions should return multiple matches', () => {
     const orCondition: ConditionNode = {
       logic: 'OR',
-      conditions: [
-        { userId: 'user1@example.com' },
-        { userId: 'user2@example.com' },
-        { role: 'guest' },
-      ],
+      conditions: [{ userId: 'user1@example.com' }, { userId: 'user2@example.com' }, { role: 'guest' }],
     };
     const result = table.filteredList(orCondition);
     expect(result.length).toBeGreaterThan(2);
@@ -95,10 +88,7 @@ describe('TableData', () => {
       conditions: [
         { userId: 'user1', like: true },
         {
-          conditions: [
-            { userId: 'user2', like: true },
-            { status: 'active' },
-          ],
+          conditions: [{ userId: 'user2', like: true }, { status: 'active' }],
         },
       ],
     };

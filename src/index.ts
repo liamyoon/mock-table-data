@@ -1,10 +1,4 @@
-import {
-  filter,
-  get,
-  includes,
-  orderBy,
-  eq,
-} from 'lodash/fp';
+import { filter, get, includes, orderBy, eq } from 'lodash/fp';
 
 export type LogicOperator = 'AND' | 'OR';
 
@@ -17,9 +11,9 @@ export type ConditionItem = {
 
 export type ConditionNode =
   | {
-  logic?: LogicOperator;
-  conditions: ConditionNode[];
-}
+      logic?: LogicOperator;
+      conditions: ConditionNode[];
+    }
   | ConditionItem;
 
 export type TableDataOptions = {
@@ -102,7 +96,13 @@ export default class TableData {
     return filter((row) => this.evaluateCondition(row, conditionTree), this._dataSource);
   }
 
-  getRows(limit: any, offset: any, conditions?: ConditionNode | ConditionItem[], sorts?: string[], meta?: boolean): Record<string, any>[] | TableMetaData {
+  getRows(
+    limit: any,
+    offset: any,
+    conditions?: ConditionNode | ConditionItem[],
+    sorts?: string[],
+    meta?: boolean,
+  ): Record<string, any>[] | TableMetaData {
     const nLimit = parseInt(limit, 10);
     const nOffset = offset ? parseInt(offset, 10) : 0;
 
@@ -143,9 +143,7 @@ export default class TableData {
   }
 
   selectRow(conditions: ConditionNode | ConditionItem[]): Record<string, any> | undefined {
-    const tree = Array.isArray(conditions)
-      ? { logic: 'AND', conditions: conditions as ConditionItem[] }
-      : conditions;
+    const tree = Array.isArray(conditions) ? { logic: 'AND', conditions: conditions as ConditionItem[] } : conditions;
 
     return this._dataSource.find((row) => this.evaluateCondition(row, tree));
   }
@@ -159,9 +157,12 @@ export default class TableData {
   }
 
   updateRow(conditions: ConditionNode | ConditionItem[], newItem?: Record<string, any>): boolean {
-    const index = this._dataSource.findIndex((row) => this.evaluateCondition(row, Array.isArray(conditions)
-      ? { logic: 'AND', conditions: conditions as ConditionItem[] }
-      : conditions));
+    const index = this._dataSource.findIndex((row) =>
+      this.evaluateCondition(
+        row,
+        Array.isArray(conditions) ? { logic: 'AND', conditions: conditions as ConditionItem[] } : conditions,
+      ),
+    );
 
     if (index === -1) throw new Error('not found condition');
 
@@ -182,7 +183,13 @@ export default class TableData {
     meta?: false,
   ): Record<string, any>[];
 
-  selectRows(limit?: any, offset?: any, conditions?: ConditionNode | ConditionItem[], sort?: any, meta?: true): TableMetaData;
+  selectRows(
+    limit?: any,
+    offset?: any,
+    conditions?: ConditionNode | ConditionItem[],
+    sort?: any,
+    meta?: true,
+  ): TableMetaData;
 
   selectRows(limit?: any, offset?: any, conditions: ConditionNode | ConditionItem[] = [], sort?: any, meta?: boolean) {
     return this.getRows(limit, offset, conditions, TableData.getSortOption(sort), meta);
