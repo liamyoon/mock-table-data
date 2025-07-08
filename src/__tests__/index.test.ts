@@ -10,7 +10,7 @@ const sampleData = Array.from({ length: 100 }).map((_, i) => ({
   contextId: `ctx-${i + 1}`,
 }));
 
-describe('TableData', () => {
+describe('default 테스트', () => {
   let table: TableData;
 
   beforeEach(() => {
@@ -132,5 +132,191 @@ describe('TableData', () => {
     const result = table.getRows(10, 10) as Record<string, any>[];
     expect(result.length).toBe(10);
     expect(result[0].id).toBe(11);
+  });
+});
+
+describe('selectRows - condition 케이스 테스트', () => {
+  let table: TableData;
+
+  beforeEach(() => {
+    table = new TableData([...sampleData], { primaryKey: 'id' });
+  });
+
+  test('빈 배열일 경우 전체 반환', () => {
+    const result = table.selectRows(undefined, undefined, []);
+    expect(result.length).toBe(100);
+  });
+
+  test('undefined condition일 경우 전체 반환', () => {
+    const result = table.selectRows(undefined, undefined, undefined);
+    expect(result.length).toBe(100);
+  });
+
+  test('조건 객체에 키는 있으나 값이 undefined인 경우 무시하고 전체 반환', () => {
+    const result = table.selectRows(undefined, undefined, [{ name: undefined }]);
+    expect(result.length).toBe(100);
+  });
+
+  test('조건에 일부는 있고 일부는 비어있는 경우, 유효한 조건만 필터링됨', () => {
+    const result = table.selectRows(undefined, undefined, [
+      { name: 'User1' }, // 유효
+      { status: undefined }, // 무시됨
+    ]);
+    expect(result.every((r) => r.name === 'User1')).toBe(true);
+  });
+
+  test('조건 일부가 빈 문자열인 경우 무시되고 필터링 동작', () => {
+    const result = table.selectRows(undefined, undefined, [
+      { name: '' }, // 무시됨
+      { role: 'admin' }, // 유효
+    ]);
+    expect(result.every((r) => r.role === 'admin')).toBe(true);
+  });
+
+  test('조건에 숫자형 key가 undefined인 경우 무시되고 필터링 동작', () => {
+    const result = table.selectRows(undefined, undefined, [
+      { id: undefined }, // 무시
+      { status: 'active' }, // 유효
+    ]);
+    expect(result.every((r) => r.status === 'active')).toBe(true);
+  });
+
+  test('조건이 모두 무효(undefined, 빈 문자열)인 경우 전체 반환', () => {
+    const result = table.selectRows(undefined, undefined, [
+      { name: undefined },
+      { role: '' },
+    ]);
+    expect(result.length).toBe(100);
+  });
+});
+
+describe('selectRows - 페이지네이션 케이스 테스트', () => {
+  let table: TableData;
+
+  beforeEach(() => {
+    table = new TableData([...sampleData], { primaryKey: 'id' });
+  });
+
+  test('limit만 설정한 경우 첫 N개만 반환', () => {
+    const result = table.selectRows(10);
+    expect(result.length).toBe(10);
+    expect(result[0].id).toBe(1);
+  });
+
+  test('limit과 offset 설정한 경우 해당 위치부터 반환', () => {
+    const result = table.selectRows(10, 20);
+    expect(result.length).toBe(10);
+    expect(result[0].id).toBe(21);
+  });
+
+  test('offset만 설정한 경우 전체에서 offset 이후 반환', () => {
+    const result = table.selectRows(undefined, 95);
+    expect(result.length).toBe(5);
+    expect(result[0].id).toBe(96);
+  });
+
+  test('limit이 0인 경우 빈 배열 반환', () => {
+    const result = table.selectRows(0);
+    expect(result).toEqual([]);
+  });
+
+  test('offset이 범위를 넘는 경우 빈 배열 반환', () => {
+    const result = table.selectRows(10, 1000);
+    expect(result).toEqual([]);
+  });
+
+  test('limit과 offset이 문자열로 들어와도 숫자로 처리되어야 함', () => {
+    const result = table.selectRows('10', '10');
+    expect(result.length).toBe(10);
+    expect(result[0].id).toBe(11);
+  });
+
+  test('meta를 true로 설정하면 메타데이터 포함 결과 반환', () => {
+    const result = table.selectRows(10, 0, [], undefined, true);
+    expect(result.result.length).toBe(10);
+    expect(result.meta.totalCount).toBe(100);
+    expect(result.meta.limit).toBe(10);
+    expect(result.meta.offset).toBe(0);
+  });
+});
+
+describe('selectRows - 조건과 페이지네이션 조합 테스트', () => {
+  let table: TableData;
+
+  beforeEach(() => {
+    table = new TableData([...sampleData], { primaryKey: 'id' });
+  });
+
+  test('userId like 조건 + limit/offset', () => {
+    const result = table.selectRows(5, 0, [{ userId: 'user1', like: true }]);
+    expect(result.length).toBe(5);
+    expect(result[0].userId).toContain('user1');
+  });
+
+  test('status active 조건 + limit/offset', () => {
+    const result = table.selectRows(3, 2, [{ status: 'active' }]);
+    expect(result.length).toBe(3);
+    result.forEach((r) => expect(r.status).toBe('active'));
+  });
+
+  test('role이 user인 조건 + meta 포함', () => {
+    const result = table.selectRows(4, 0, [{ role: 'user' }], undefined, true);
+    expect(result.result.length).toBe(4);
+    expect(result.meta.totalCount).toBeGreaterThan(4);
+    result.result.forEach((r) => expect(r.role).toBe('user'));
+  });
+
+  test('like 검색 + 페이징 (User2)', () => {
+    const result = table.selectRows(3, 3, [{ name: 'User2', like: true }]);
+    expect(result.length).toBe(3);
+    expect(result.every((r) => r.name.includes('User2'))).toBe(true);
+  });
+
+  test('복합 조건 AND + 페이징', () => {
+    const conditions: ConditionItem[] = [
+      { status: 'active' },
+      { role: 'admin' },
+    ];
+    const result = table.selectRows(2, 0, conditions);
+    expect(result.length).toBeLessThanOrEqual(2);
+    result.forEach((r) => {
+      expect(r.status).toBe('active');
+      expect(r.role).toBe('admin');
+    });
+  });
+
+  test('OR 조건 + 페이징', () => {
+    const orCondition: ConditionNode = {
+      logic: 'OR',
+      conditions: [
+        { userId: 'user3@example.com' },
+        { userId: 'user4@example.com' },
+      ],
+    };
+    const result = table.selectRows(1, 1, orCondition);
+    expect(result.length).toBe(1);
+    expect(['user3@example.com', 'user4@example.com']).toContain(result[0].userId);
+  });
+
+  test('조건 있음 + offset 범위 초과 시 빈 결과', () => {
+    const result = table.selectRows(10, 1000, [{ status: 'active' }]);
+    expect(result).toEqual([]);
+  });
+
+  test('조건 없음 (빈 배열) + limit/offset', () => {
+    const result = table.selectRows(5, 95, []);
+    expect(result.length).toBe(5);
+    expect(result[0].id).toBe(96);
+  });
+
+  test('조건이 일부 속성만 비어있는 경우 정상 작동', () => {
+    const result = table.selectRows(10, 0, [
+      { status: undefined, required: false },
+      { role: 'user' },
+    ]);
+    expect(result.length).toBe(10);
+    result.forEach((r) => {
+      expect(r.role).toBe('user');
+    });
   });
 });

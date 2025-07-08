@@ -85,6 +85,7 @@ export default class TableData {
     if (!key) return false;
 
     const value = node[key];
+    if (value === undefined || value === '') return true;
     const rowValue = get(key, row);
     const like = node.like === true;
 
@@ -132,7 +133,7 @@ export default class TableData {
     const nLimit = parseInt(limit, 10);
     const nOffset = offset ? parseInt(offset, 10) : 0;
 
-    if (!this._dataSource || !this._dataSource.length) {
+    if (!this._dataSource || !this._dataSource.length || nLimit === 0) {
       if (!meta) return [];
       return {
         result: [],
