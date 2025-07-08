@@ -182,10 +182,7 @@ describe('selectRows - condition 케이스 테스트', () => {
   });
 
   test('조건이 모두 무효(undefined, 빈 문자열)인 경우 전체 반환', () => {
-    const result = table.selectRows(undefined, undefined, [
-      { name: undefined },
-      { role: '' },
-    ]);
+    const result = table.selectRows(undefined, undefined, [{ name: undefined }, { role: '' }]);
     expect(result.length).toBe(100);
   });
 });
@@ -273,10 +270,7 @@ describe('selectRows - 조건과 페이지네이션 조합 테스트', () => {
   });
 
   test('복합 조건 AND + 페이징', () => {
-    const conditions: ConditionItem[] = [
-      { status: 'active' },
-      { role: 'admin' },
-    ];
+    const conditions: ConditionItem[] = [{ status: 'active' }, { role: 'admin' }];
     const result = table.selectRows(2, 0, conditions);
     expect(result.length).toBeLessThanOrEqual(2);
     result.forEach((r) => {
@@ -288,10 +282,7 @@ describe('selectRows - 조건과 페이지네이션 조합 테스트', () => {
   test('OR 조건 + 페이징', () => {
     const orCondition: ConditionNode = {
       logic: 'OR',
-      conditions: [
-        { userId: 'user3@example.com' },
-        { userId: 'user4@example.com' },
-      ],
+      conditions: [{ userId: 'user3@example.com' }, { userId: 'user4@example.com' }],
     };
     const result = table.selectRows(1, 1, orCondition);
     expect(result.length).toBe(1);
@@ -310,10 +301,7 @@ describe('selectRows - 조건과 페이지네이션 조합 테스트', () => {
   });
 
   test('조건이 일부 속성만 비어있는 경우 정상 작동', () => {
-    const result = table.selectRows(10, 0, [
-      { status: undefined, required: false },
-      { role: 'user' },
-    ]);
+    const result = table.selectRows(10, 0, [{ status: undefined, required: false }, { role: 'user' }]);
     expect(result.length).toBe(10);
     result.forEach((r) => {
       expect(r.role).toBe('user');
