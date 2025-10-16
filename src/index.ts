@@ -173,8 +173,7 @@ export default class TableData {
     if (!key || !this._dataSource || !this._dataSource.length) return 0;
     const lastItem = this._dataSource.reduce((a, b) => (a[key] > b[key] ? a : b));
     return lastItem[key] + 1;
-  };
-
+  }
 
   selectRow(conditions: ConditionNode | ConditionItem[]): Record<string, any> | undefined {
     const tree = Array.isArray(conditions) ? { logic: 'AND', conditions: conditions as ConditionItem[] } : conditions;
