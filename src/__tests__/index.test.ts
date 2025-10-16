@@ -2,6 +2,7 @@ import TableData, { ConditionItem, ConditionNode } from '../index';
 
 const sampleData = Array.from({ length: 100 }).map((_, i) => ({
   id: i + 1,
+  subId: i + 1000,
   userId: `user${i + 1}@example.com`,
   name: `User${i + 1}`,
   status: i % 2 === 0 ? 'active' : 'inactive',
@@ -17,6 +18,16 @@ describe('default 테스트', () => {
     table = new TableData([...sampleData], { primaryKey: 'id' });
   });
 
+  test('getNewId - 정상 동작', () => {
+    const newId = table.getNewId();
+    expect(newId).toBe(101);
+  });
+
+  test('getNewId - 정상 동작 2', () => {
+    const newId = table.getNewId('subId');
+    expect(newId).toBe(1100);
+  });
+
   test('insertRow - 정상 동작', () => {
     const newRow = { ...sampleData[0], id: 101 };
     const inserted = table.insertRow(newRow);
@@ -28,6 +39,15 @@ describe('default 테스트', () => {
     expect(() => {
       table.insertRow(sampleData[0]);
     }).toThrow('primary key duplicate error');
+  });
+
+  test('insertRow - primary key 생성', () => {
+    const newRow: any = { ...sampleData[0] };
+    delete newRow.id;
+    const result = table.insertRow(newRow);
+    const checkRow = table.selectRow([{ id: result.id }]);
+    expect(result.id).toBe(101);
+    expect(checkRow?.id).toBe(result.id);
   });
 
   test('selectRow - 특정 조건으로 찾기', () => {

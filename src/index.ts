@@ -169,6 +169,13 @@ export default class TableData {
     };
   }
 
+  getNewId(key = this._primaryKey): number {
+    if (!key || !this._dataSource || !this._dataSource.length) return 0;
+    const lastItem = this._dataSource.reduce((a, b) => (a[key] > b[key] ? a : b));
+    return lastItem[key] + 1;
+  };
+
+
   selectRow(conditions: ConditionNode | ConditionItem[]): Record<string, any> | undefined {
     const tree = Array.isArray(conditions) ? { logic: 'AND', conditions: conditions as ConditionItem[] } : conditions;
 
@@ -179,8 +186,12 @@ export default class TableData {
     if (this._primaryKey && this._dataSource.find((row) => row[this._primaryKey!] === item[this._primaryKey!])) {
       throw new Error('primary key duplicate error');
     }
-    this._dataSource.push(item);
-    return item;
+    const newRow = { ...item };
+    if (this._primaryKey && item[this._primaryKey] === undefined) {
+      newRow[this._primaryKey] = this.getNewId();
+    }
+    this._dataSource.push(newRow);
+    return newRow;
   }
 
   updateRow(conditions: ConditionNode | ConditionItem[], newItem?: Record<string, any>): boolean {
