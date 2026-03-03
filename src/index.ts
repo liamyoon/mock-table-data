@@ -2,6 +2,8 @@ import { filter, get, includes, orderBy, eq } from 'lodash/fp';
 
 export type LogicOperator = 'AND' | 'OR';
 
+export const CONDITION_RESERVED_KEYS = ['type', 'required', 'like'] as const;
+
 export type ConditionItem = {
   [key: string]: any;
   type?: 'string' | 'number' | 'boolean';
@@ -15,6 +17,18 @@ export type ConditionNode =
       conditions: ConditionNode[];
     }
   | ConditionItem;
+
+function isConditionGroup(node: ConditionNode): node is { logic?: LogicOperator; conditions: ConditionNode[] } {
+  return 'conditions' in node && Array.isArray((node as any).conditions);
+}
+
+function isSkippableValue(value: any): boolean {
+  return value === undefined;
+}
+
+function isRequiredEmpty(value: any): boolean {
+  return value === undefined || value === null || value === '';
+}
 
 export type TableDataOptions = {
   primaryKey?: string;
@@ -49,20 +63,20 @@ export default class TableData {
   }
 
   private static validateConditionItem(item: ConditionItem): void {
-    const key = Object.keys(item).find((k) => !['type', 'required', 'like'].includes(k));
+    const key = Object.keys(item).find((k) => !(CONDITION_RESERVED_KEYS as readonly string[]).includes(k));
     if (!key) throw new Error('Invalid condition item: no key provided');
 
     const value = item[key];
     const { required, type } = item;
 
-    if (required && (value === undefined || value === null || value === '')) {
+    if (required && isRequiredEmpty(value)) {
       throw new Error(`Missing required field: ${key}`);
     }
 
-    if (value !== undefined && value !== null && type) {
+    if (!isSkippableValue(value) && type) {
       const typeCheck = {
         string: (v: any) => typeof v === 'string',
-        number: (v: any) => typeof v === 'number' || !isNaN(parseFloat(v)),
+        number: (v: any) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))),
         boolean: (v: any) => typeof v === 'boolean' || v === 'true' || v === 'false',
       }[type];
 
@@ -73,7 +87,7 @@ export default class TableData {
   }
 
   private evaluateCondition(row: Record<string, any>, node: ConditionNode): boolean {
-    if ('conditions' in node) {
+    if (isConditionGroup(node)) {
       const logic = node.logic ?? 'AND';
       const results = node.conditions.map((child) => this.evaluateCondition(row, child));
       return logic === 'AND' ? results.every(Boolean) : results.some(Boolean);
@@ -81,16 +95,29 @@ export default class TableData {
 
     TableData.validateConditionItem(node);
 
-    const key = Object.keys(node).find((k) => !['type', 'required', 'like'].includes(k));
+    const key = Object.keys(node).find((k) => !(CONDITION_RESERVED_KEYS as readonly string[]).includes(k));
     if (!key) return false;
 
     const value = node[key];
-    if (value === undefined || value === '') return true;
+    if (isSkippableValue(value)) return true;
+
     const rowValue = get(key, row);
     const like = node.like === true;
 
+    // null 매칭: value가 null이면 rowValue도 null 또는 undefined인 행만 매칭
+    if (value === null) {
+      return rowValue === null || rowValue === undefined;
+    }
+
+    if (typeof value === 'boolean') {
+      if (typeof rowValue === 'boolean') return value === rowValue;
+      if (typeof rowValue === 'string') return value === (rowValue === 'true');
+      return false;
+    }
+
     if (typeof value === 'string') {
-      const cmp = (rowValue ?? '').toString().toUpperCase();
+      if (rowValue === null || rowValue === undefined) return false;
+      const cmp = rowValue.toString().toUpperCase();
       const target = value.toUpperCase();
       return like ? includes(target, cmp) : cmp === target;
     }
@@ -102,15 +129,27 @@ export default class TableData {
     return this._dataSource;
   }
 
+  private static parseSortOrder(order?: string): 'asc' | 'desc' | undefined {
+    if (!order) return undefined;
+    const normalized = order.trim().toLowerCase();
+    if (['asc', 'ascend'].includes(normalized)) return 'asc';
+    if (['desc', 'descend'].includes(normalized)) return 'desc';
+    return undefined;
+  }
+
   sortedList(rows: Record<string, any>[], sorts: string[]): Record<string, any>[] {
     const sortKeys: string[] = [];
     const sortOrders: ('asc' | 'desc')[] = [];
 
     for (const s of sorts) {
       const [key, order] = s.split(':');
+      const parsed = TableData.parseSortOrder(order);
+      if (parsed === undefined) continue;
       sortKeys.push(key);
-      sortOrders.push(order === 'desc' ? 'desc' : 'asc');
+      sortOrders.push(parsed);
     }
+
+    if (sortKeys.length === 0) return rows;
 
     return orderBy(sortKeys, sortOrders, rows);
   }
@@ -154,9 +193,9 @@ export default class TableData {
     if (sorts) result = this.sortedList(result, sorts);
     result = result.slice(nOffset, limit ? nOffset + nLimit : undefined);
 
-    if (!meta) return result;
-
     if (this.dataProcessing) result = this.dataProcessing(result);
+
+    if (!meta) return result;
 
     return {
       result: [...result],
